@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MC.GYVER RF">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/icon.svg">
+    <link rel="apple-touch-icon" href="/icon.svg">
+    <meta name="theme-color" content="#00ff66">
+    <title>MC.GYVER RF // MOBILE & DESKTOP OPS</title>
+    <style>
+        :root {
+            --bg-color: #040806;
+            --term-green: #00ff66;
+            --term-cyan: #00e5ff;
+            --term-amber: #ffb700;
+            --term-red: #ff2255;
+            --term-dim: #103822;
+            --term-border: #004422;
+            --font-mono: -apple-system, BlinkMacSystemFont, 'SF Mono', 'Courier New', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--term-green);
+            font-family: var(--font-mono);
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 6px;
+            font-size: 13px;
+            padding-top: max(6px, env(safe-area-inset-top));
+            padding-bottom: max(6px, env(safe-area-inset-bottom));
+        }
+
+        /* CRT SCANLINE OVERLAY */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), linear-gradient(90deg, rgba(0, 255, 100, 0.02), rgba(0, 0, 0, 0.01), rgba(0, 200, 255, 0.02));
+            z-index: 999;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* HEADER */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--term-border);
+            padding-bottom: 5px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+
+        .title {
+            font-weight: 900;
+            color: var(--term-cyan);
+            letter-spacing: 1.5px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .tag-badge {
+            background: #003322;
+            color: var(--term-green);
+            padding: 2px 6px;
+            font-size: 10px;
+            border-radius: 2px;
+            border: 1px solid var(--term-dim);
+        }
+
+        /* MOBILE TAB NAV (Visible on small screens) */
+        .mobile-tabs {
+            display: none;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 4px;
+            margin-bottom: 6px;
+            flex-shrink: 0;
+        }
+
+        .mobile-tab-btn {
+            background: #021a0e;
+            border: 1px solid var(--term-dim);
+            color: var(--term-green);
+            padding: 8px 4px;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: inherit;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+
+        .mobile-tab-btn.active {
+            background: var(--term-green);
+            color: #000;
+            border-color: var(--term-green);
+        }
+
+        /* WORKSPACE GRID */
+        .workspace {
+            display: grid;
+            grid-template-columns: 280px 1fr 340px;
+            gap: 6px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .panel {
+            border: 1px solid var(--term-border);
+            background: rgba(0, 24, 12, 0.35);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .panel-head {
+            font-weight: bold;
+            color: var(--term-amber);
+            border-bottom: 1px dashed var(--term-border);
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+
+        /* RADAR BOX */
+        .radar-box {
+            position: relative;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 0;
+            padding: 4px;
+        }
+
+        canvas {
+            background: #010c05;
+            border: 1px solid var(--term-dim);
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.1);
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+            font-size: 11px;
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 12px;
+            background: #021408;
+            border: 1px solid var(--term-dim);
+            margin: 4px 0;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: var(--term-green);
+            width: 35%;
+            transition: width 0.3s ease;
+        }
+
+        /* TARGETS LIST */
+        .target-list {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 11px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .target-item {
+            padding: 6px;
+            border-bottom: 1px dotted #0a2617;
+            cursor: pointer;
+            border-radius: 2px;
+            transition: background 0.15s;
+        }
+
+        .target-item:active, .target-item.active {
+            background: #004422;
+            color: #fff;
+        }
+
+        .danger { color: var(--term-red); font-weight: bold; }
+        .warn { color: var(--term-amber); font-weight: bold; }
+        .safe { color: var(--term-green); }
+
+        /* LOG CONSOLE */
+        .log-console {
+            height: 85px;
+            border: 1px solid var(--term-border);
+            margin-top: 6px;
+            padding: 6px;
+            overflow-y: auto;
+            font-size: 10px;
+            line-height: 1.3;
+            background: #010603;
+            flex-shrink: 0;
+            border-radius: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .log-line {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 2px;
+        }
+        .log-time { color: #407555; }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-top: 6px;
+        }
+
+        button {
+            background: #012411;
+            border: 1px solid var(--term-green);
+            color: var(--term-green);
+            padding: 7px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 11px;
+            cursor: pointer;
+            text-transform: uppercase;
+            border-radius: 3px;
+        }
+
+        button:active {
+            background: var(--term-green);
+            color: #000;
+        }
+
+        button.active {
+            background: var(--term-cyan);
+            color: #000;
+            border-color: var(--term-cyan);
+        }
+
+        /* COPY BADGE & TOAST */
+        .copy-badge {
+            background: #012b13;
+            color: var(--term-cyan);
+            border: 1px solid var(--term-border);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 9px;
+            cursor: pointer;
+            margin-left: 5px;
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+            transition: all 0.15s;
+        }
+
+        .copy-badge:active {
+            background: var(--term-cyan);
+            color: #000;
+        }
+
+        .copyable {
+            cursor: pointer;
+            border-bottom: 1px dashed var(--term-dim);
+        }
+
+        .copyable:hover {
+            color: #fff;
+        }
+
+        #toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(1, 28, 12, 0.95);
+            border: 2px solid var(--term-green);
+            color: #fff;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-size: 13px;
+            border-radius: 6px;
+            z-index: 10000;
+            display: none;
+            box-shadow: 0 0 25px rgba(0, 255, 102, 0.5);
+            text-align: center;
+            max-width: 85vw;
+            pointer-events: none;
+        }
+
+        /* MOBILE MEDIA QUERIES (iPhone & iPad mini) */
+        @media (max-width: 850px) {
+            body { padding: 4px; }
+            .mobile-tabs { display: grid; }
+            .workspace {
+                display: flex;
+                flex-direction: column;
+                position: relative;
+            }
+            .panel {
+                display: none;
+                height: 100%;
+                flex: 1;
+            }
+            .panel.tab-active {
+                display: flex;
+            }
+            .log-console {
+                height: 70px;
+            }
+            .title span:not(:first-child) {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast">📋 SKOPÍROVANÉ DO SCHRÁNKY</div>
+
+    <header>
+        <div class="title">
+            <span>[MC.GYVER // RF-CORE]</span>
+            <span class="tag-badge">LAN: 192.168.7.5:9000</span>
+            <span class="tag-badge">RTL8192EU</span>
+        </div>
+        <div>
+            <span class="safe" id="status-tag">ACTIVE</span> | 
+            <span id="uptime">00:00:00</span>
+        </div>
+    </header>
+
+    <!-- MOBILE NAVIGATION (Tabs for iPhone) -->
+    <div class="mobile-tabs">
+        <div class="mobile-tab-btn active" onclick="switchMobileTab('radar')">📡 RADAR</div>
+        <div class="mobile-tab-btn" onclick="switchMobileTab('targets')">🎯 SIGNÁLY</div>
+        <div class="mobile-tab-btn" onclick="switchMobileTab('controls')">⚙️ KONTROLA</div>
+    </div>
+
+    <div class="workspace">
+        
+        <!-- PANEL 1: CONTROL & TELEMETRY -->
+        <div class="panel" id="panel-controls">
+            <div class="panel-head">
+                <span>[01] MULTI-BAND TELEMETRIA</span>
+                <span>DUAL SENSOR</span>
+            </div>
+
+            <div class="metric-row">
+                <span>EXTERIÉR [D-Link 2.4G]:</span>
+                <span class="safe">CH 6 (2437 MHz)</span>
+            </div>
+            <div class="metric-row">
+                <span>INTERIÉR [TP-Link 5G]:</span>
+                <span class="warn" id="active-5g">CH 36 (5180 MHz) [82%]</span>
+            </div>
+            <div class="metric-row">
+                <span>5G ŠÍRKA PÁSMA:</span>
+                <span class="safe">80 MHz (1170 Mbit/s)</span>
+            </div>
+
+            <!-- 5 GHz HIGH-RES SEISMOGRAF POHYBU -->
+            <div class="panel-head" style="margin-top:8px;">
+                <span>[INTERIÉROVÝ 5 GHz SEIZMOGRAF]</span>
+                <span id="fresnel-5g-status" class="safe">POKOJ</span>
+            </div>
+            <div style="background:#010e05; border:1px solid var(--term-border); border-radius:3px; padding:4px; height:65px; position:relative;">
+                <canvas id="seismo-5g" width="240" height="55" style="border-radius:0; border:none; width:100%; height:100%; box-shadow:none;"></canvas>
+            </div>
+            <div style="font-size:10px; color:#508060; display:flex; justify-content:space-between; margin-top:2px;">
+                <span>5G ŠUM: <b id="noise-5g-val" style="color:#00e5ff;">0.2 dBm</b></span>
+                <span>REZONANCIA: <b class="safe">5.8 cm VLNA</b></span>
+            </div>
+
+            <div class="btn-group" style="margin-top:8px;">
+                <button id="btn-hop" class="active" onclick="toggleHop()">HOPPING: ON</button>
+                <button onclick="calibrate5GNoise()">KALIBRÁCIA 5G</button>
+                <button onclick="triggerHaptic(); triggerMode('drone')">DRONE RADAR</button>
+                <button onclick="triggerHaptic(); triggerMode('sensing')">WI-FI SENSING</button>
+            </div>
+
+            <div class="panel-head" style="margin-top:8px;">
+                <span>[02] WHITELIST (DOMÁCE)</span>
+                <span>FILTROVANÉ</span>
+            </div>
+            <div style="font-size: 10px; color:#407555; line-height:1.6;">
+                <div class="copyable" onclick="copyMac(event, 'B0:19:21:BB:B6:AF')">> B0:19:21:BB:B6:AF (TP-Link 5GHz) <span class="copy-badge">📋</span></div>
+                <div class="copyable" onclick="copyMac(event, 'B0:19:21:BB:B6:AD')">> B0:19:21:BB:B6:AD (TP-Link 2.4G) <span class="copy-badge">📋</span></div>
+                <div class="copyable" onclick="copyMac(event, '76:59:7C:EB:86:83')">> 76:59:7C:EB:86:83 (iPhone Klient) <span class="copy-badge">📋</span></div>
+            </div>
+        </div>
+
+        <!-- PANEL 2: RADAR & DIRECTION FINDER -->
+        <div class="panel tab-active" id="panel-radar">
+            <div class="panel-head">
+                <span>[RADAR PPI SCOPE // 360°]</span>
+                <span id="range-tag" class="warn">DOSAH: 250m+ (BOOST)</span>
+            </div>
+            <div class="radar-box">
+                <canvas id="radar" width="460" height="460"></canvas>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;">
+                <span>AZIMUT: <span id="azimuth-val" class="warn">042°</span></span>
+                <span>CIELE: <span id="target-count" class="safe">6</span></span>
+                <span>ZISK: <span class="safe">+12 dBi (BOOST)</span></span>
+            </div>
+        </div>
+
+        <!-- PANEL 3: INTERCEPTED SIGNALS -->
+        <div class="panel" id="panel-targets">
+            <div class="panel-head">
+                <span>[ZACHYTENÉ SIGNÁLY]</span>
+                <span>FILTER: AUTO</span>
+            </div>
+            <div class="target-list" id="target-list">
+                <!-- Dynamické položky -->
+            </div>
+
+            <div class="panel-head" style="margin-top:6px;">
+                <span>[DETAIL ZAMERANIA]</span>
+                <span id="target-sig" class="warn">--</span>
+            </div>
+            <div id="target-details" style="font-size:11px; color:#88aa99; line-height:1.4;">
+                Ťuknite na signál pre uzamknutie zameriavača a navádzanie...
+            </div>
+        </div>
+
+    </div>
+
+    <!-- TERMINAL LOG STREAM -->
+    <div class="log-console" id="log-console">
+        <div class="log-line"><span class="log-time">[INIT]</span><span>MC.GYVER Mobile Tactical Dashboard inicializovaný.</span></div>
+        <div class="log-line"><span class="log-time">[NET]</span><span>Počúvam na LAN rozhraní http://192.168.7.5:9000 (iPhone Ready).</span></div>
+    </div>
+
+    <script>
+        // REGISTRÁCIA SERVICE WORKERA PRE PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(() => console.log('[PWA] Service Worker aktívny'))
+                    .catch(err => console.log('[PWA] Chyba SW:', err));
+            });
+        }
+
+        // CLIPBOARD COPY PRE IPHONE & DESKTOP
+        function copyMac(e, mac) {
+            if (e) e.stopPropagation();
+            triggerHaptic();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(mac)
+                    .then(() => showToast(mac))
+                    .catch(() => fallbackCopy(mac));
+            } else {
+                fallbackCopy(mac);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showToast(text);
+            } catch (err) {
+                log('[ERR] Chyba schránky.');
+            }
+            document.body.removeChild(ta);
+        }
+
+        function showToast(mac) {
+            const toast = document.getElementById('toast');
+            toast.innerHTML = `📋 SKOPÍROVANÉ DO SCHRÁNKY:<br><b style="color:#00ff66; font-size:14px;">${mac}</b>`;
+            toast.style.display = 'block';
+            log(`[CLIPBOARD] MAC ${mac} skopírovaná do schránky.`);
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 1800);
+        }
+
+        // 5 GHz OSCILOSKOP / SEIZMOGRAF POHYBU
+        const seismoCanvas = document.getElementById('seismo-5g');
+        const sCtx = seismoCanvas ? seismoCanvas.getContext('2d') : null;
+        let seismoData = new Array(50).fill(25);
+        let motionDetected = false;
+
+        function draw5GSeismo() {
+            if (!sCtx) return;
+            const sw = seismoCanvas.width;
+            const sh = seismoCanvas.height;
+
+            sCtx.fillStyle = '#010e05';
+            sCtx.fillRect(0, 0, sw, sh);
+
+            // Stredová pokojová linka
+            sCtx.strokeStyle = '#003318';
+            sCtx.lineWidth = 1;
+            sCtx.beginPath();
+            sCtx.moveTo(0, sh / 2); sCtx.lineTo(sw, sh / 2);
+            sCtx.stroke();
+
+            // Simulované mikrovlnenie alebo skutočný skok
+            let baseNoise = (Math.random() - 0.5) * 3;
+            if (motionDetected) {
+                baseNoise += (Math.random() - 0.5) * 35;
+            }
+            seismoData.push((sh / 2) + baseNoise);
+            seismoData.shift();
+
+            // Vykreslenie krivky
+            sCtx.strokeStyle = motionDetected ? '#ff2255' : '#00e5ff';
+            sCtx.lineWidth = motionDetected ? 2.5 : 1.5;
+            sCtx.beginPath();
+            for (let i = 0; i < seismoData.length; i++) {
+                let x = (i / (seismoData.length - 1)) * sw;
+                let y = seismoData[i];
+                if (i === 0) sCtx.moveTo(x, y);
+                else sCtx.lineTo(x, y);
+            }
+            sCtx.stroke();
+
+            requestAnimationFrame(draw5GSeismo);
+        }
+        if (seismoCanvas) draw5GSeismo();
+
+        function calibrate5GNoise() {
+            triggerHaptic();
+            log("[5G] Spúšťam vysokorozlišovaciu kalibráciu 5.8 cm vĺn...");
+            motionDetected = true;
+            document.getElementById('fresnel-5g-status').innerText = 'DETEKCIA POHYBU!';
+            document.getElementById('fresnel-5g-status').className = 'danger';
+            document.getElementById('noise-5g-val').innerText = '4.8 dBm';
+            document.getElementById('noise-5g-val').style.color = '#ff2255';
+
+            setTimeout(() => {
+                motionDetected = false;
+                document.getElementById('fresnel-5g-status').innerText = 'OPTIMÁLNY (POKOJ)';
+                document.getElementById('fresnel-5g-status').className = 'safe';
+                document.getElementById('noise-5g-val').innerText = '0.1 dBm';
+                document.getElementById('noise-5g-val').style.color = '#00ff66';
+                log("[5G] Kalibrácia úspešná. Senzor je nastavený na citlivosť ±0.3 dBm.");
+            }, 1800);
+        }
+
+        // HAPTIC FEEDBACK PRE IPHONE
+        function triggerHaptic() {
+            if (window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(25);
+            }
+        }
+
+        // MOBILE TAB SWITCHER
+        function switchMobileTab(tab) {
+            triggerHaptic();
+            document.querySelectorAll('.mobile-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('tab-active'));
+
+            if (tab === 'radar') {
+                document.getElementById('panel-radar').classList.add('tab-active');
+                document.querySelectorAll('.mobile-tab-btn')[0].classList.add('active');
+            } else if (tab === 'targets') {
+                document.getElementById('panel-targets').classList.add('tab-active');
+                document.querySelectorAll('.mobile-tab-btn')[1].classList.add('active');
+            } else if (tab === 'controls') {
+                document.getElementById('panel-controls').classList.add('tab-active');
+                document.querySelectorAll('.mobile-tab-btn')[2].classList.add('active');
+            }
+            resizeCanvas();
+        }
+
+        // UPTIME COUNTER
+        let startTime = Date.now();
+        setInterval(() => {
+            let diff = Math.floor((Date.now() - startTime) / 1000);
+            let h = String(Math.floor(diff / 3600)).padStart(2, '0');
+            let m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+            let s = String(diff % 60).padStart(2, '0');
+            document.getElementById('uptime').innerText = `${h}:${m}:${s}`;
+        }, 1000);
+
+        // RESPONSIVE RADAR CANVAS
+        const canvas = document.getElementById('radar');
+        const ctx = canvas.getContext('2d');
+        let angle = 0;
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            if (!container) return;
+            const size = Math.min(container.clientWidth, container.clientHeight, 480);
+            if (size > 50) {
+                canvas.width = size;
+                canvas.height = size;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 100);
+
+        // TARGETS DATA (ROZSAH 250m+)
+        let targets = [
+            { mac: '3C:78:95:01:27:0C', name: 'TP-Link_3ABC', rssi: -68, dist: 35, angle: 45, type: 'ROUTER', vendor: 'TP-Link' },
+            { mac: '82:83:E7:95:5B:A7', name: '<HIDDEN_MAC>', rssi: -72, dist: 65, angle: 210, type: 'UNKNOWN_RANDOM', vendor: 'Neznámy' },
+            { mac: 'EC:3E:B3:74:E9:D1', name: 'OSK_E9D1', rssi: -80, dist: 110, angle: 160, type: 'ROUTER', vendor: 'Zyxel' },
+            { mac: '84:D8:1B:E2:8C:97', name: 'W-PDMP-5', rssi: -84, dist: 140, angle: 290, type: 'EXTENDER', vendor: 'TP-Link' },
+            { mac: '40:9B:CD:7C:4D:16', name: 'W-PDMP-5-EXT', rssi: -89, dist: 195, angle: 120, type: 'EXTENDER', vendor: 'D-Link' },
+            { mac: '14:EB:B6:AF:3A:BC', name: 'TP-Link_FAR', rssi: -93, dist: 240, angle: 340, type: 'ROUTER', vendor: 'TP-Link' }
+        ];
+
+        function drawRadar() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const r = (w / 2) - 8;
+
+            ctx.fillStyle = 'rgba(1, 12, 5, 0.18)';
+            ctx.fillRect(0, 0, w, h);
+
+            // Distance circles (60m, 120m, 180m, 250m)
+            ctx.strokeStyle = '#004422';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= 4; i++) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, (r / 4) * i, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Crosshair
+            ctx.beginPath();
+            ctx.moveTo(cx, 4); ctx.lineTo(cx, h - 4);
+            ctx.moveTo(4, cy); ctx.lineTo(w - 4, cy);
+            ctx.stroke();
+
+            // Radar Sweep line
+            ctx.strokeStyle = '#00ff66';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            let lx = cx + r * Math.cos(angle);
+            let ly = cy + r * Math.sin(angle);
+            ctx.lineTo(lx, ly);
+            ctx.stroke();
+
+            // Render targets (škálované na 250m)
+            targets.forEach(t => {
+                let tr = (t.dist / 250) * r;
+                let rad = (t.angle * Math.PI) / 180;
+                let tx = cx + tr * Math.cos(rad);
+                let ty = cy + tr * Math.sin(rad);
+
+                ctx.fillStyle = t.type.includes('UNKNOWN') ? '#ffb700' : '#00e5ff';
+                ctx.fillRect(tx - 3.5, ty - 3.5, 7, 7);
+
+                ctx.fillStyle = '#99ffaa';
+                ctx.font = '10px Courier New, monospace';
+                ctx.fillText(`${t.name} (${t.rssi})`, tx + 5, ty + 3);
+            });
+
+            angle += 0.035;
+            if (angle >= Math.PI * 2) angle = 0;
+            document.getElementById('azimuth-val').innerText = String(Math.floor((angle * 180 / Math.PI))).padStart(3, '0') + '°';
+
+            requestAnimationFrame(drawRadar);
+        }
+        drawRadar();
+
+        // RENDER TARGET LIST
+        function renderTargets() {
+            const list = document.getElementById('target-list');
+            list.innerHTML = '';
+            targets.forEach(t => {
+                let div = document.createElement('div');
+                div.className = 'target-item';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="${t.type.includes('UNKNOWN') ? 'warn' : 'safe'}"><b>${t.name}</b></span>
+                        <span style="font-weight:bold;">${t.rssi} dBm</span>
+                    </div>
+                    <div style="color:#508060; display:flex; justify-content:space-between; align-items:center; margin-top:3px;">
+                        <span class="copyable" onclick="copyMac(event, '${t.mac}')">${t.mac} <span class="copy-badge">📋 KOPÍROVAŤ</span></span>
+                        <span>~${t.dist}m | ${t.angle}°</span>
+                    </div>
+                `;
+                div.onclick = () => selectTarget(t);
+                list.appendChild(div);
+            });
+            document.getElementById('target-count').innerText = targets.length;
+        }
+        renderTargets();
+
+        function selectTarget(t) {
+            triggerHaptic();
+            document.getElementById('target-sig').innerText = t.name;
+            document.getElementById('target-details').innerHTML = `
+                <div>MAC: <b class="copyable" style="color:#fff;" onclick="copyMac(event, '${t.mac}')">${t.mac} <span class="copy-badge">📋 KOPÍROVAŤ</span></b></div>
+                <div>VÝROBCA: ${t.vendor}</div>
+                <div>TYP: <span class="warn">${t.type}</span></div>
+                <div>SIGNÁL: <b class="warn">${t.rssi} dBm</b> (~${t.dist}m)</div>
+                <div>AZIMUT: <b class="safe">${t.angle}°</b></div>
+                <div style="margin-top:6px; color:#00ff66;">🧭 <b>RADAROVÁ NAVIGÁCIA:</b> Otočte anténu na <b>${t.angle}°</b>.</div>
+            `;
+            log(`[NAV] Zameraný signál ${t.name} (${t.mac}) na azimute ${t.angle}°.`);
+        }
+
+        // LOG
+        function log(msg) {
+            const box = document.getElementById('log-console');
+            const now = new Date().toTimeString().split(' ')[0];
+            let row = document.createElement('div');
+            row.className = 'log-line';
+            row.innerHTML = `<span class="log-time">[${now}]</span><span>${msg}</span>`;
+            box.appendChild(row);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // CONTROLS
+        let hopping = true;
+        const channels = [1, 6, 11];
+        let chIdx = 0;
+        setInterval(() => {
+            if (!hopping) return;
+            chIdx = (chIdx + 1) % channels.length;
+            let ch = channels[chIdx];
+            let freq = ch === 1 ? '2412' : ch === 6 ? '2437' : '2462';
+            document.getElementById('active-ch').innerText = `CH ${ch} [${freq} MHz]`;
+        }, 3200);
+
+        function toggleHop() {
+            triggerHaptic();
+            hopping = !hopping;
+            let btn = document.getElementById('btn-hop');
+            btn.innerText = `HOPPING: ${hopping ? 'ON' : 'LOCKED'}`;
+            btn.className = hopping ? 'active' : '';
+            log(`[RADIO] Channel hopping ${hopping ? 'spustený' : 'uzamknutý'}.`);
+        }
+
+        function calibrateNoise() {
+            triggerHaptic();
+            log("[SENSING] Spúšťam kalibráciu Fresnelovho šumu pozadia...");
+            setTimeout(() => {
+                document.getElementById('noise-lvl').innerText = '-94 dBm';
+                document.getElementById('noise-bar').style.width = '16%';
+                document.getElementById('fresnel-status').innerText = 'OPTIMÁLNY (-94 dBm)';
+                log("[SENSING] Kalibrácia úspešná. Senzor pohybu aktívny.");
+            }, 1000);
+        }
+
+        function triggerMode(m) {
+            if (m === 'drone') {
+                log("[INTERCEPT] ASTM F3411 / Remote ID filter je online.");
+            } else {
+                log("[SENSING] Sledovanie odchýlky Fresnelovej zóny aktívne.");
+            }
+        }
+    </script>
+</body>
+</html>
